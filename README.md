@@ -1,13 +1,13 @@
 To Run:
 
-MAKE A VENV
-INSTALL ALL REQUIREMENTS
-pip install -r requirements.txt
+MAKE A VENV<br>
+INSTALL ALL REQUIREMENTS<br>
+pip install -r requirements.txt<br>
 
-Open Docker Desktop
+Open Docker Desktop<br>
 docker start rabbitmq
-python manager.py
-python test_submit.py in different terminal
+python manager.py<br>
+python test_submit.py in different terminal<br>
 
 You can go to http://localhost:15672/ to see the queue working
 Username and password are 'guest'
