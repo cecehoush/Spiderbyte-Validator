@@ -5,5 +5,9 @@ INSTALL ALL REQUIREMENTS
 pip install -r requirements.txt
 
 Open Docker Desktop
-run manager.py
-run test_submit.py in dedicated terminal (click on the dropdown next to the run button)
+docker start rabbitmq
+python manager.py
+python test_submit.py in different terminal
+
+You can go to http://localhost:15672/ to see the queue working
+Username and password are 'guest'
