@@ -1,55 +1,44 @@
 import pika
 import docker
 import os
+import uuid  # For generating unique container names if needed
 
 # Docker client setup
 client = docker.from_env()
 
-def execute_user_code(user_code, container_name):
-    script_filename = f"script_{container_name}.py"
-    dockerfile_name = f"Dockerfile_{container_name}"
+# Pre-built base Docker image
+BASE_IMAGE = "baseimage"
 
+def execute_user_code(user_code, container_name):
+    # Generate a unique script file name for each user code
+    script_filename = f"script_{container_name}.py"
+
+    # Write the user code to a script file
     with open(script_filename, "w") as script_file:
         script_file.write(user_code)
 
-    dockerfile_content = f"""
-    FROM python:3.10-alpine
-    RUN mkdir /code
-    WORKDIR /code
-    COPY {script_filename} /code/script.py
-    """
-
-    with open(dockerfile_name, "w") as dockerfile:
-        dockerfile.write(dockerfile_content)
+    print(f"User script {script_filename} created.")
 
     try:
-        image, _ = client.images.build(
-            path=".",
-            dockerfile=dockerfile_name,
-            tag=f"user_code_image_{container_name}",
-            rm=True,
+        # Run the Docker container using the pre-built base image and mounting the script file
+        print(f"Running Docker container for {container_name}...")
+        container = client.containers.run(
+            image=BASE_IMAGE,  # Use the pre-built base image
+            command="python /code/script.py",  # This will execute the user code
+            detach=False,  # Run the container synchronously
+            network_mode="none",  # Disable network for security
+            mem_limit="512m",  # Limit memory
+            cpu_quota=50000,  # Limit CPU usage
+            volumes={os.path.abspath(script_filename): {'bind': '/code/script.py', 'mode': 'ro'}},  # Mount user script
+            remove=True  # Automatically remove the container after it finishes
         )
-    except docker.errors.BuildError as e:
-        print(f"Build Error for {container_name}: {str(e)}")
-        return
-
-    try:
-        result = client.containers.run(
-            image=f"user_code_image_{container_name}",
-            command="python script.py",
-            remove=True,
-            network_mode="none",
-            mem_limit="512m",
-            cpu_quota=50000
-        )
-        print(f"Output from {container_name}: {result.decode('utf-8')}")
+        print(f"Output from {container_name}: {container.decode('utf-8')}")
     except docker.errors.ContainerError as e:
         print(f"Error from {container_name}: {e.stderr.decode('utf-8')}")
     finally:
+        # Clean up the temporary user script file
         if os.path.exists(script_filename):
             os.remove(script_filename)
-        if os.path.exists(dockerfile_name):
-            os.remove(dockerfile_name)
 
 def callback(ch, method, properties, body):
     """Callback function to process incoming messages from RabbitMQ"""
@@ -57,6 +46,7 @@ def callback(ch, method, properties, body):
     container_name = f"user_{method.delivery_tag}"
     print(f"Received code to execute: {user_code}")
     execute_user_code(user_code, container_name)
+    # Acknowledge message after processing
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def start_microservice():
