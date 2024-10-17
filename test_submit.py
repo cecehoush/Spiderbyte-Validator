@@ -168,7 +168,34 @@ if __name__ == "__main__":
             "expected_output": "True"
         }
     ]
+},
+{
+    "userid": "user6",
+    "usercode": "def findMedianSortedArrays(nums1, nums2):\n    merged = nums1 + nums2\n    merged.sort()\n    length = len(merged)\n    if length % 2 == 1:\n        return merged[length // 2]\n    else:\n        return (merged[length // 2 - 1] + merged[length // 2]) / 2\nfindMedianSortedArrays(input1, input2)",
+    "test_cases": [
+        {
+            "inputs": ["[1,3]", "[2]"],
+            "expected_output": "2"
+        },
+        {
+            "inputs": ["[1,2]", "[3,4]"],
+            "expected_output": "2.5"
+        },
+        {
+            "inputs": ["[0,0]", "[0,0]"],
+            "expected_output": "0.0"
+        },
+        {
+            "inputs": ["[]", "[1]"],
+            "expected_output": "1"
+        },
+        {
+            "inputs": ["[2]", "[]"],
+            "expected_output": "2"
+        }
+    ]
 }
+
 
 ]
 

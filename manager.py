@@ -21,7 +21,7 @@ def print_divider():
     print("-" * 60)
 
 def run_test_case(user_code, test_case_inputs, expected_output):
-    """Runs user code against a single test case inside a Docker container."""
+    """Runs user code against a single test case inside a Docker container and captures high-precision execution time."""
     container_name = f"container_{uuid.uuid4().hex}"
     script_filename = f"script_{container_name}.py"
 
@@ -30,15 +30,26 @@ def run_test_case(user_code, test_case_inputs, expected_output):
 
     # Combine the user code and input assignments into the final script
     full_code = f"""
+import time
+
 # Assign inputs
 {input_assignments}
+
+# Start the high-resolution timer
+start_time = time.perf_counter()
 
 # User's function definition and call
 {user_code}
 
 # Call the function and print the result
 result = {user_code.splitlines()[-1]}  # Run the last line (function call)
+end_time = time.perf_counter()
 print(result)  # Ensure the result is printed
+
+execution_time_ms = (end_time - start_time) * 1000  # Convert to milliseconds
+
+# Print execution time in milliseconds
+print(f"Execution Time: {{execution_time_ms:.2f}} ms")
 """
 
     # Write the full code (user's function + input assignments) to the script file
@@ -46,9 +57,9 @@ print(result)  # Ensure the result is printed
         script_file.write(full_code)
 
     try:
-        # Run the Docker container using the pre-built base image and mounting the script file
-        print_divider()
         print(f"🚀 Running Docker container {container_name}...")
+
+        # Run the Docker container using the pre-built base image and mounting the script file
         container = client.containers.run(
             image=BASE_IMAGE,
             command="python /code/script.py",
@@ -60,14 +71,14 @@ print(result)  # Ensure the result is printed
         )
 
         # Wait for the container to finish with a timeout
-        start_time = time.time()
-        while time.time() - start_time < CONTAINER_TIMEOUT:
+        start_time = time.perf_counter()
+        while time.perf_counter() - start_time < CONTAINER_TIMEOUT:
             container_status = container.wait(timeout=1)
             if container_status['StatusCode'] == 0:
                 break
 
         # If the container has not finished within the timeout, kill it
-        if time.time() - start_time >= CONTAINER_TIMEOUT:
+        if time.perf_counter() - start_time >= CONTAINER_TIMEOUT:
             print(f"⏰ Timeout reached. Killing container {container_name}...")
             container.kill()
             return False, f"Timeout on test case with input: {test_case_inputs}"
@@ -76,19 +87,24 @@ print(result)  # Ensure the result is printed
         output = container.logs().decode('utf-8').strip()
 
         # Log the output for debugging purposes
-        # print(f"TEST Output from Docker logs: {output}")
+        print(f"TEST Output from Docker logs: {output}")
+
+        # Extract execution time from the output
+        execution_time_line = [line for line in output.splitlines() if "Execution Time:" in line]
+        if execution_time_line:
+            execution_time = execution_time_line[0].split(":")[-1].strip()
 
         # Normalize both output and expected output for comparison
-        normalized_output = output.strip()
+        normalized_output = output.splitlines()[0].strip()  # First line is the function result
         normalized_expected_output = str(expected_output).strip()
 
         print(f"Comparing output: '{normalized_output}' with expected: '{normalized_expected_output}'")
 
-        # Ensure that both the output and the expected_output are stripped for comparison
+        # Return the result and the high-precision execution time
         if normalized_output == normalized_expected_output:
-            return True, "Test case passed"
+            return True, f"Test case passed (Execution Time: {execution_time})"
         else:
-            return False, f"Expected: '{normalized_expected_output}', but got: '{normalized_output}'"
+            return False, f"Expected: '{normalized_expected_output}', but got: '{normalized_output}' (Execution Time: {execution_time})"
 
     except docker.errors.ContainerError as e:
         error_message = e.stderr.decode('utf-8')
