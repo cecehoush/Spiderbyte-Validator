@@ -18,7 +18,7 @@ def print_header(message):
     print(f"### {message.upper()} ###")
 
 def print_divider():
-    print("\n" + "-" * 60)
+    print("-" * 60)
 
 def run_test_case(user_code, test_case_inputs, expected_output):
     """Runs user code against a single test case inside a Docker container."""
@@ -47,6 +47,7 @@ print(result)  # Ensure the result is printed
 
     try:
         # Run the Docker container using the pre-built base image and mounting the script file
+        print_divider()
         print(f"🚀 Running Docker container {container_name}...")
         container = client.containers.run(
             image=BASE_IMAGE,
@@ -75,7 +76,7 @@ print(result)  # Ensure the result is printed
         output = container.logs().decode('utf-8').strip()
 
         # Log the output for debugging purposes
-        print(f"TEST Output from Docker logs: {output}")
+        # print(f"TEST Output from Docker logs: {output}")
 
         # Normalize both output and expected output for comparison
         normalized_output = output.strip()
