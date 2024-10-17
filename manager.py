@@ -49,7 +49,7 @@ print(result)  # Ensure the result is printed
 execution_time_ms = (end_time - start_time) * 1000  # Convert to milliseconds
 
 # Print execution time in milliseconds
-print(f"Execution Time: {{execution_time_ms:.2f}} ms")
+print(f"Execution Time: {{execution_time_ms:.3f}} ms")
 """
 
     # Write the full code (user's function + input assignments) to the script file
