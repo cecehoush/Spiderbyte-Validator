@@ -25,12 +25,32 @@ def run_test_case(user_code, test_case_inputs, expected_output):
     container_name = f"container_{uuid.uuid4().hex}"
     script_filename = f"script_{container_name}.py"
 
-    # Create input assignments based on the test case inputs
-    input_assignments = "\n".join([f"input{i+1} = {test_case_inputs[i]}" for i in range(len(test_case_inputs))])
+    def is_number(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    # Adjusted input assignment to properly handle strings and numbers
+    input_assignments = "\n".join([f"input{i+1} = {test_case_inputs[i]}" if isinstance(test_case_inputs[i], (int, float)) or (isinstance(test_case_inputs[i], str) and is_number(test_case_inputs[i]))
+                                   else f"input{i+1} = '{test_case_inputs[i]}'"
+                                   for i in range(len(test_case_inputs))])
+
+    # Get the last line of the user's code (assuming it's the function call)
+    last_line = user_code.strip().splitlines()[-1]
 
     # Combine the user code and input assignments into the final script
     full_code = f"""
 import time
+import sys
+
+# Redirect all print statements to devnull (suppress them)
+class DevNull:
+    def write(self, msg):
+        pass
+
+sys.stdout = DevNull()
 
 # Assign inputs
 {input_assignments}
@@ -38,19 +58,25 @@ import time
 # Start the high-resolution timer
 start_time = time.perf_counter()
 
-# User's function definition and call
+# User's function definition
 {user_code}
 
-# Call the function and print the result
-result = {user_code.splitlines()[-1]}  # Run the last line (function call)
+# Execute the last line (assumed to be the function call)
+result = {last_line}
 end_time = time.perf_counter()
-print(result)  # Ensure the result is printed
+
+# Restore sys.stdout after capturing the result
+sys.stdout = sys.__stdout__
+
+# Print the result explicitly
+print(result)
 
 execution_time_ms = (end_time - start_time) * 1000  # Convert to milliseconds
 
 # Print execution time in milliseconds
 print(f"Execution Time: {{execution_time_ms:.3f}} ms")
 """
+
 
     # Write the full code (user's function + input assignments) to the script file
     with open(script_filename, "w") as script_file:
@@ -169,7 +195,7 @@ def start_microservice():
     channel = connection.channel()
 
     # Declare the queue (it will be created if it doesn't exist)
-    channel.queue_declare(queue='code_queue')
+    channel.queue_declare(queue='code_queue', durable=True)
 
     # Set up a consumer on the queue
     channel.basic_consume(queue='code_queue', on_message_callback=callback)
