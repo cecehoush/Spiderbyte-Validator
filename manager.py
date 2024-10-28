@@ -33,9 +33,13 @@ def run_test_case(user_code, test_case_inputs, expected_output):
             return False
 
     # Adjusted input assignment to properly handle strings and numbers
-    input_assignments = "\n".join([f"input{i+1} = {test_case_inputs[i]}" if isinstance(test_case_inputs[i], (int, float)) or (isinstance(test_case_inputs[i], str) and is_number(test_case_inputs[i]))
-                                   else f"input{i+1} = '{test_case_inputs[i]}'"
-                                   for i in range(len(test_case_inputs))])
+# Adjusted input assignment to properly handle strings, numbers, and arrays
+    input_assignments = "\n".join([
+        f"input{i+1} = {test_case_inputs[i]}" if isinstance(test_case_inputs[i], (int, float, list)) or (isinstance(test_case_inputs[i], str) and is_number(test_case_inputs[i]))
+        else f"input{i+1} = '{test_case_inputs[i]}'"
+        for i in range(len(test_case_inputs))
+    ])
+
 
     # Get the last line of the user's code (assuming it's the function call)
     last_line = user_code.strip().splitlines()[-1]
