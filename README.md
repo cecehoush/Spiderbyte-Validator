@@ -71,6 +71,8 @@ This command will build the Docker image from the provided `Dockerfile` located 
 1. Pull the official RabbitMQ image (only needs to be done once):
 
    ```bash
+   set DOCKER_HOST=npipe:////./pipe/docker_engine
+   pip install --upgrade docker
    docker pull rabbitmq
    ```
 
