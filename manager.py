@@ -4,6 +4,7 @@ import os
 import uuid  # For generating unique container names
 import json
 import time
+import requests  # Import the requests library for making HTTP requests
 
 client = docker.from_env()
 
@@ -32,14 +33,12 @@ def run_test_case(user_code, test_case_inputs, expected_output):
         except ValueError:
             return False
 
-    # Adjusted input assignment to properly handle strings and numbers
-# Adjusted input assignment to properly handle strings, numbers, and arrays
-    input_assignments = "\n".join([
+    # Adjusted input assignment to properly handle strings, numbers, and arrays
+    input_assignments = "\n".join([ 
         f"input{i+1} = {test_case_inputs[i]}" if isinstance(test_case_inputs[i], (int, float, list)) or (isinstance(test_case_inputs[i], str) and is_number(test_case_inputs[i]))
         else f"input{i+1} = '{test_case_inputs[i]}'"
         for i in range(len(test_case_inputs))
     ])
-
 
     # Get the last line of the user's code (assuming it's the function call)
     last_line = user_code.strip().splitlines()[-1]
@@ -81,7 +80,6 @@ execution_time_ms = (end_time - start_time) * 1000  # Convert to milliseconds
 print(f"Execution Time: {{execution_time_ms:.3f}} ms")
 """
 
-
     # Write the full code (user's function + input assignments) to the script file
     with open(script_filename, "w") as script_file:
         script_file.write(full_code)
@@ -121,8 +119,7 @@ print(f"Execution Time: {{execution_time_ms:.3f}} ms")
 
         # Extract execution time from the output
         execution_time_line = [line for line in output.splitlines() if "Execution Time:" in line]
-        if execution_time_line:
-            execution_time = execution_time_line[0].split(":")[-1].strip()
+        execution_time = execution_time_line[0].split(":")[-1].strip() if execution_time_line else "Unknown"
 
         # Normalize both output and expected output for comparison
         normalized_output = output.splitlines()[0].strip()  # First line is the function result
@@ -148,10 +145,10 @@ print(f"Execution Time: {{execution_time_ms:.3f}} ms")
         if os.path.exists(script_filename):
             os.remove(script_filename)
 
-
-def execute_user_code(user_code, user_id, test_cases):
+def execute_user_code(user_code, test_cases, user_id):
     print(f"USER: {user_id} | Processing test cases...")
 
+    results = []  # List to store results of all test cases
     for index, test_case in enumerate(test_cases, start=1):
         test_case_inputs = test_case['inputs']
         expected_output = test_case['expected_output']
@@ -161,11 +158,21 @@ def execute_user_code(user_code, user_id, test_cases):
         # Run the user's code against the current test case
         passed, message = run_test_case(user_code, test_case_inputs, expected_output)
 
-        if not passed:
-            # If any test case fails, return the failed test case result
-            return f"Test case {index} failed: {message}"
+        # Store the result
+        results.append({
+            "test_case_index": index,
+            "result": passed,
+            "message": message,
+        })
 
-    # If all test cases pass
+        if not passed:
+            # If any test case fails, break out of the loop
+            break
+
+    # Send results back to the submission route
+    # send_results_to_submission_service(results)
+
+    # If all test cases pass, return a success message
     return "All test cases passed!"
 
 def callback(ch, method, properties, body):
@@ -173,16 +180,15 @@ def callback(ch, method, properties, body):
     try:
         message = json.loads(body.decode('utf-8'))
         user_code = message['usercode']
-        user_id = message['userid']
+        userid = message['userid']  # Get client ID from the message
+        client_id = message['clientId']
+        session_id = message['sessionId']
         test_cases = message.get('test_cases', [])
+        # Execute user code and get results
+        results = execute_user_code(user_code, test_cases, userid)
 
-        print_header(f"RECEIVED CODE TO EXECUTE FOR USER: {user_id}")
-
-        # Execute the user code against the provided test cases
-        result = execute_user_code(user_code, user_id, test_cases)
-
-        # Send the result back (you can integrate this with a WebSocket or result queue)
-        print(result)
+        # Send results back to the /results endpoint
+        send_results_to_submission_service(client_id, session_id, results)
 
     except json.JSONDecodeError:
         print("❌ Received an invalid JSON message.")
@@ -193,6 +199,25 @@ def callback(ch, method, properties, body):
     finally:
         # Acknowledge message after processing
         ch.basic_ack(delivery_tag=method.delivery_tag)
+
+def send_results_to_submission_service(client_id, session_id, results):
+    """Send results back to the submission service."""
+    results_url = 'http://localhost:5000/api/submissions/results'  
+    payload = {
+        "clientId": client_id,
+        "sessionId": session_id,  
+        "results": results,
+    }
+
+    try:
+        response = requests.post(results_url, json=payload)
+        if response.status_code == 200:
+            print("Results successfully sent back to submission service.")
+        else:
+            print(f"Failed to send results: {response.status_code} {response.content}")
+    except Exception as e:
+        print(f"Error sending results: {e}")
+
 
 def start_microservice():
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
