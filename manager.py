@@ -4,6 +4,7 @@ import os
 import uuid  # For generating unique container names
 import json
 import time
+import requests
 
 client = docker.from_env()
 
@@ -174,6 +175,8 @@ def callback(ch, method, properties, body):
         message = json.loads(body.decode('utf-8'))
         user_code = message['usercode']
         user_id = message['userid']
+        client_id = message['clientId']
+        session_id = message['sessionId']
         test_cases = message.get('test_cases', [])
 
         print_header(f"RECEIVED CODE TO EXECUTE FOR USER: {user_id}")
@@ -184,6 +187,8 @@ def callback(ch, method, properties, body):
         # Send the result back (you can integrate this with a WebSocket or result queue)
         print(result)
 
+        send_results_to_submission_service(client_id, session_id, result)
+
     except json.JSONDecodeError:
         print("❌ Received an invalid JSON message.")
     except KeyError as e:
@@ -193,6 +198,24 @@ def callback(ch, method, properties, body):
     finally:
         # Acknowledge message after processing
         ch.basic_ack(delivery_tag=method.delivery_tag)
+        
+def send_results_to_submission_service(client_id, session_id, result):
+    """Send results back to the submission service."""
+    results_url = 'http://localhost:5000/api/submissions/results'  
+    payload = {
+        "clientId": client_id,
+        "sessionId": session_id,  
+        "results": result,
+    }
+
+    try:
+        response = requests.post(results_url, json=payload)
+        if response.status_code == 200:
+            print("Results successfully sent back to submission service.")
+        else:
+            print(f"Failed to send results: {response.status_code} {response.content}")
+    except Exception as e:
+        print(f"Error sending results: {e}")
 
 def start_microservice():
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
