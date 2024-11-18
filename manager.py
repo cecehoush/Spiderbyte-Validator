@@ -4,6 +4,7 @@ import os
 import uuid  # For generating unique container names
 import json
 import time
+import requests
 
 client = docker.from_env()
 
@@ -166,15 +167,16 @@ def execute_user_code(user_code, user_id, test_cases):
             return f"Test case {index} failed: {message}"
 
     # If all test cases pass
-    return "All test cases passed!"
+    return f"All test cases passed! Message: {message} Passed: {passed}"
 
 def callback(ch, method, properties, body):
     """Callback function to process incoming messages from RabbitMQ"""
     try:
         message = json.loads(body.decode('utf-8'))
         user_code = message['usercode']
-        user_id = message['userid']
+        user_id = int(message['userid'])
         test_cases = message.get('test_cases', [])
+        challenge_title = message.get('challenge_name', "")
 
         print_header(f"RECEIVED CODE TO EXECUTE FOR USER: {user_id}")
 
@@ -182,10 +184,41 @@ def callback(ch, method, properties, body):
         result = execute_user_code(user_code, user_id, test_cases)
 
         # Send the result back (you can integrate this with a WebSocket or result queue)
-        print(result)
+        # print(result)
+        # Parse the result to check for test case success and extract execution time
+        if result.startswith("All test cases passed!"):
+            execution_time = None  # Default to None if execution time is not in result
+    
+        # Extract execution time if available
+        if "Execution Time:" in result:
+            try:
+                execution_time = float(result.split("Execution Time:")[1].split("ms")[0].strip())
+            except (IndexError, ValueError) as e:
+                print(f"Error extracting execution time: {e}")
+                execution_time = None  # Set to None if parsing fails
 
-    except json.JSONDecodeError:
-        print("❌ Received an invalid JSON message.")
+        # Prepare data to send in the PUT request
+        payload = {
+            "user_id": user_id,
+            "valid_solution": True,
+            "submitted_at": time.strftime('%Y-%m-%d %H:%M:%S'),  # Current datetime
+            "execution_time": execution_time,
+            "error_messages": 'None'
+        }
+
+        # Send the PUT request and handle potential errors
+        response = f"http://localhost:5000/api/submissions/{challenge_title}"
+        try:
+            response = requests.put(f"{response}", json=payload)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            print("Submission update successful:", response.json())
+        except requests.exceptions.RequestException as e:
+            print(f"Error updating submission: {e}")
+
+
+
+    except json.JSONDecodeError as e:
+        print(f"❌ Received an invalid JSON message. {e}")
     except KeyError as e:
         print(f"❌ Missing expected key in JSON message: {e}")
     except Exception as e:
