@@ -175,6 +175,8 @@ def callback(ch, method, properties, body):
         message = json.loads(body.decode('utf-8'))
         user_code = message['usercode']
         user_id = int(message['userid'])
+        client_id = message['clientId']
+        session_id = message['sessionId']
         test_cases = message.get('test_cases', [])
         challenge_title = message.get('challenge_name', "")
 
@@ -226,6 +228,24 @@ def callback(ch, method, properties, body):
     finally:
         # Acknowledge message after processing
         ch.basic_ack(delivery_tag=method.delivery_tag)
+        
+def send_results_to_submission_service(client_id, session_id, result):
+    """Send results back to the submission service."""
+    results_url = 'http://localhost:5000/api/submissions/results'  
+    payload = {
+        "clientId": client_id,
+        "sessionId": session_id,  
+        "results": result,
+    }
+
+    try:
+        response = requests.post(results_url, json=payload)
+        if response.status_code == 200:
+            print("Results successfully sent back to submission service.")
+        else:
+            print(f"Failed to send results: {response.status_code} {response.content}")
+    except Exception as e:
+        print(f"Error sending results: {e}")
 
 def start_microservice():
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
