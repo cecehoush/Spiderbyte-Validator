@@ -173,12 +173,15 @@ def callback(ch, method, properties, body):
     """Callback function to process incoming messages from RabbitMQ"""
     try:
         message = json.loads(body.decode('utf-8'))
-        user_code = message['usercode']
-        user_id = int(message['userid'])
-        client_id = message['clientId']
-        session_id = message['sessionId']
+        user_code = message.get('code', "")
+        user_id = int(message.get('userid', 0))
+        client_id = message.get('clientId', "")
+        session_id = message.get('sessionId', "")
         test_cases = message.get('test_cases', [])
         challenge_title = message.get('challenge_name', "")
+        challenge_id = message.get('_id', "")
+
+
 
         print_header(f"RECEIVED CODE TO EXECUTE FOR USER: {user_id}")
 
@@ -216,6 +219,19 @@ def callback(ch, method, properties, body):
             print("Submission update successful:", response.json())
         except requests.exceptions.RequestException as e:
             print(f"Error updating submission: {e}")
+
+        # Add the challenge to the user's list of completed challenges
+        try:
+            user_update_url = f"http://localhost:5000/api/users/{user_id}/solved"
+            user_update_payload = {
+            "challenge_id": challenge_id,
+            "solved_at": time.strftime('%Y-%m-%d %H:%M:%S')  # Current datetime
+            }
+            user_update_response = requests.put(user_update_url, json=user_update_payload)
+            user_update_response.raise_for_status()  # Raise an exception for HTTP errors
+            print("User challenge completion update successful:", user_update_response.json())
+        except requests.exceptions.RequestException as e:
+            print(f"Error updating user's completed challenges: {e}")
 
 
 
