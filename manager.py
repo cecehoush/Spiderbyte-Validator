@@ -187,9 +187,7 @@ def callback(ch, method, properties, body):
 
         # Execute the user code against the provided test cases
         result = execute_user_code(user_code, user_id, test_cases)
-
-        # Send the result back (you can integrate this with a WebSocket or result queue)
-        # print(result)
+       
         # Parse the result to check for test case success and extract execution time
         if result.startswith("All test cases passed!"):
             execution_time = None  # Default to None if execution time is not in result
@@ -233,7 +231,7 @@ def callback(ch, method, properties, body):
         except requests.exceptions.RequestException as e:
             print(f"Error updating user's completed challenges: {e}")
 
-
+        send_results_to_submission_service(client_id, session_id, result)
 
     except json.JSONDecodeError as e:
         print(f"❌ Received an invalid JSON message. {e}")
