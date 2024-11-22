@@ -79,7 +79,7 @@ print(result)
 execution_time_ms = (end_time - start_time) * 1000  # Convert to milliseconds
 
 # Print execution time in milliseconds
-print(f"Execution Time: {{execution_time_ms:.3f}} ms")
+print(f"Execution Time: {{execution_time_ms:.5f}} ms")
 """
 
 
@@ -133,7 +133,7 @@ print(f"Execution Time: {{execution_time_ms:.3f}} ms")
 
         # Return the result and the high-precision execution time
         if normalized_output == normalized_expected_output:
-            return True, f"Test case passed (Execution Time: {execution_time})"
+            return True, f"Execution Time: {execution_time}"
         else:
             return False, f"Expected: '{normalized_expected_output}', but got: '{normalized_output}' (Execution Time: {execution_time})"
 
@@ -167,7 +167,7 @@ def execute_user_code(user_code, user_id, test_cases):
             return f"Test case {index} failed: {message}"
 
     # If all test cases pass
-    return f"All test cases passed! Message: {message} Passed: {passed}"
+    return f"All test cases passed! {message}"
 
 def callback(ch, method, properties, body):
     """Callback function to process incoming messages from RabbitMQ"""
