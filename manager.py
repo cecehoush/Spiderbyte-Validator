@@ -174,7 +174,7 @@ def callback(ch, method, properties, body):
     try:
         message = json.loads(body.decode('utf-8'))
         user_code = message.get('code', "")
-        user_id = int(message.get('userid', 0))
+        user_id = message.get('userid', 0)
         client_id = message.get('clientId', "")
         session_id = message.get('sessionId', "")
         test_cases = message.get('test_cases', [])
@@ -214,22 +214,10 @@ def callback(ch, method, properties, body):
         try:
             response = requests.put(f"{response}", json=payload)
             response.raise_for_status()  # Raise an exception for HTTP errors
-            print("Submission update successful:", response.json())
+            print("Submission update successful:", response.text)
         except requests.exceptions.RequestException as e:
             print(f"Error updating submission: {e}")
 
-        # Add the challenge to the user's list of completed challenges
-        try:
-            user_update_url = f"http://localhost:5000/api/users/{user_id}/solved"
-            user_update_payload = {
-            "challenge_id": challenge_id,
-            "solved_at": time.strftime('%Y-%m-%d %H:%M:%S')  # Current datetime
-            }
-            user_update_response = requests.put(user_update_url, json=user_update_payload)
-            user_update_response.raise_for_status()  # Raise an exception for HTTP errors
-            print("User challenge completion update successful:", user_update_response.json())
-        except requests.exceptions.RequestException as e:
-            print(f"Error updating user's completed challenges: {e}")
 
         send_results_to_submission_service(client_id, session_id, result)
 
