@@ -179,6 +179,7 @@ def callback(ch, method, properties, body):
         session_id = message.get('sessionId', "")
         test_cases = message.get('test_cases', [])
         challenge_title = message.get('challenge_name', "")
+        challenge_difficulty = message.get('challenge_difficulty', 0)
         challenge_id = message.get('_id', "")
 
 
@@ -188,8 +189,10 @@ def callback(ch, method, properties, body):
         # Execute the user code against the provided test cases
         result = execute_user_code(user_code, user_id, test_cases)
        
+        passed = False
         # Parse the result to check for test case success and extract execution time
         if result.startswith("All test cases passed!"):
+            passed = True
             execution_time = None  # Default to None if execution time is not in result
     
         # Extract execution time if available
@@ -203,9 +206,10 @@ def callback(ch, method, properties, body):
         # Prepare data to send in the PUT request
         payload = {
             "user_id": user_id,
-            "valid_solution": True,
+            "valid_solution": passed,
             "submitted_at": time.strftime('%Y-%m-%d %H:%M:%S'),  # Current datetime
             "execution_time": execution_time,
+            "challenge_difficulty": challenge_difficulty,
             "error_messages": 'None'
         }
 
